@@ -19,27 +19,50 @@ They share names, but belong to different packages and have different interfaces
 ## Prerequisites
 
 You need a reachable inference service and a compatible client installation.
-The examples below use the **1.0.0 client API** and assume access to a matching client wheel bundle; do not assume that this package is available on public PyPI.
-The bundle must include the client and its matching `structured-data-models-api` and `structured-data-models-pql` wheels, all at version 1.0.0.
-Install from the directory containing those wheels:
+Install the client from PyPI:
 
 ```bash
-python -m pip install --find-links /path/to/client-wheels \
-    "structured-data-models-client==1.0.0"
+python -m pip install "structured-data-models-client"
 ```
 
-Kumo Relational also needs the matching 1.0.0 `structured-data-models-relational-engine` and `structured-data-models-connectors` wheels:
+For Kumo Relational, include the `relational` extra:
 
 ```bash
-python -m pip install --find-links /path/to/client-wheels \
-    "structured-data-models-client[relational]==1.0.0"
+python -m pip install "structured-data-models-client[relational]"
 ```
 
-Third-party dependencies are resolved from your configured package index.
 The base client supports Python 3.10 through 3.14.
 The relational-engine wheels are built for CPython 3.10 through 3.13 on Linux with glibc 2.28 or newer, on x86-64 and aarch64.
 The tabular client can run on macOS or Windows; installing the relational-engine wheels needs Linux.
 The inference service owns the GPU in both cases.
+
+(remote-databricks-notebooks)=
+
+### Databricks notebooks
+
+Use `%pip` to install into a Databricks notebook while preserving the runtime's NumPy version.
+Run each of these steps in its own cell, before importing the client.
+The extras below cover both warehouse access and Databricks Model Serving.
+
+First, capture the installed NumPy version:
+
+```python
+import numpy
+
+keep_numpy = f"numpy=={numpy.__version__}"
+```
+
+Then install the client:
+
+```text
+%pip install --only-binary=:all: "structured-data-models-client[relational,databricks,databricks-serving]" $keep_numpy
+```
+
+Finally, restart Python so the notebook loads the installed packages:
+
+```python
+dbutils.library.restartPython()
+```
 
 ## Connect to a NIM
 
@@ -220,7 +243,19 @@ Route session calls to the same serving process; create a new session or use one
 
 The source of the data and the host of the model are separate choices.
 Warehouse tables can be sampled in place and sent to an external NIM.
-Install the matching `structured-data-models-connectors` wheel and the client's `databricks` or `snowflake` extra for the source you use.
+For these Relational warehouse examples, install the client's `relational` extra together with `databricks` or `snowflake` for the source you use:
+
+```bash
+python -m pip install "structured-data-models-client[relational,databricks]"
+```
+
+For Snowflake instead:
+
+```bash
+python -m pip install "structured-data-models-client[relational,snowflake]"
+```
+
+For installation in a Databricks notebook, follow {ref}`remote-databricks-notebooks`.
 
 The following source examples assume that tables equivalent to `users` and `orders` above already exist in the selected warehouse.
 In a Databricks notebook with an existing `spark` session:
@@ -287,7 +322,14 @@ Databricks Model Serving uses a platform-specific connection rather than the NIM
 The endpoint must serve the Kumo Relational MLflow package implementing the `request_json`/`response_json` envelope.
 Obtain that model package through your deployment provider, or ask your workspace operator to register it and create the serving endpoint.
 This section covers invocation of an existing compatible endpoint.
-Install the client's `relational` and `databricks-serving` extras from the same wheel bundle.
+Install the client's `relational` and `databricks-serving` extras:
+
+```bash
+python -m pip install "structured-data-models-client[relational,databricks-serving]"
+```
+
+For notebook setup, see {ref}`remote-databricks-notebooks`.
+
 Use the **serving endpoint name**, and the Relational request prepared above:
 
 ```python
@@ -308,7 +350,7 @@ See [Databricks custom-model endpoint documentation](https://docs.databricks.com
 
 Reading tables with `SnowflakeSource` is supported independently of Snowflake-hosted model inference.
 Calling a Kumo Relational model deployed through the Snowflake Model Registry on Snowpark Container Services requires a platform serving transport.
-The 1.0.0 client API documented here provides no public Snowflake Model Serving transport.
+The client currently provides no public Snowflake Model Serving transport.
 For a supported client workflow, sample Snowflake tables as above and call a deployed NIM's HTTP endpoint.
 See [Snowflake model serving](https://docs.snowflake.com/en/developer-guide/snowflake-ml/inference/real-time-inference-rest-api) for the platform's own serving interfaces.
 
