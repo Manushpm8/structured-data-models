@@ -1,4 +1,4 @@
-# NIM and Data Connectors
+# NIM Inference
 
 NVIDIA NIM runs Kumo Tabular and Kumo Relational as inference services on a GPU host.
 This guide shows how to call a deployed NIM from Python and use data connectors to read input tables from a database or warehouse.
