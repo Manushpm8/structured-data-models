@@ -89,11 +89,15 @@ Wait for the service to finish starting, then check readiness and the model IDs 
 from sdm_client import SDMClient
 
 with SDMClient(url="http://localhost:8001") as client:
-    print(client.health_ready())
-    print(client.models())
+    ready = client.health_ready()
+    print(ready)
+    if ready:
+        print(client.models())
 ```
 
-Continue when readiness is `True` and the endpoint advertises the model you intend to use.
+`health_ready()` returns `False` for a non-200 response and raises `StructuredDataError` with code `TRANSPORT_ERROR` if the service cannot be reached yet.
+Retry the check while the container starts, and call `models()` only after readiness is `True`.
+Continue when the endpoint advertises the model you intend to use.
 Pass the **base URL**, such as `http://localhost:8001`; `SDMClient` adds the `/v1/...` routes.
 `KumoTabular()` and `KumoRelational()` select the model to call on that endpoint.
 These selectors are distinct from the in-process model implementations in `sdm.models`.
@@ -109,6 +113,7 @@ If an authenticating gateway accepts `X-API-Key`, supply its key explicitly with
 `SDMClient` sends that value as `X-API-Key` and requires HTTPS when sending credentials to a non-local host.
 
 NVIDIA's hosted API Catalog uses model-specific URLs and Bearer authentication.
+`SDMClient` cannot call that hosted API.
 The connection shown here is for a deployed NIM.
 To call NVIDIA's hosted API, follow the model's API example on NVIDIA Build.
 
@@ -219,6 +224,9 @@ Add the platform extras below to the client installation command to install the 
 | S3 CSV/Parquet files    | `read(path)`                                  | `s3`                                         |
 | Local CSV/Parquet files | `read(path)`                                  | No driver extra; connectors package required |
 
+On Databricks, install `lakebase` instead of `postgres` or `all`, even for PostgreSQL outside Lakebase.
+This avoids the bundled OpenSSL in `psycopg[binary]`, which fails its FIPS self-test on Databricks aarch64 hosts.
+
 The `relational` extra also installs the connectors package.
 If you only installed the base package for Tabular inference and want to use local file readers, add the connectors package:
 
@@ -231,6 +239,8 @@ The Lakebase connection helper is imported from `sdm_connectors.databricks`.
 Database sources with `Schema.from_source()` are for Kumo Relational.
 `materialize()` samples the records needed for a prediction instead of loading every table into memory.
 For Kumo Tabular, use `read(path)` for files or `read_table(connection, table=...)` for database tables to load rows into pandas DataFrames, then pass those DataFrames to `Request`.
+`read_table()` requires a DB-API connection, such as one from `databricks.sql.connect(...)`, `warehouse(...)`, or `snowflake.connector.connect(...)`.
+For a Snowpark session, pass its `.connection`; a Spark or Snowpark session itself is not a DB-API connection.
 
 ### Databricks and Snowflake
 
@@ -375,6 +385,7 @@ with SDMClient(url="http://localhost:8001") as client:
 `fit()` uploads and pins context; it does not train the model.
 The fitted handle sends query data against that context, and its context manager releases the session.
 Declare every entity the session may score in `holdout` before pinning context, so those entities cannot become their own labeled examples.
+`fit()` emits an `SDMWarning` when it removes holdout rows from the context; this is expected and reduces the context size.
 For temporal tasks, this excludes those entities at every anchor; use one-shot prediction when historical examples for the same entity are needed.
 If the deployment does not support sessions, use `client.predict()`.
 Sessions live in the serving process and can expire, be evicted, or disappear after a restart.
