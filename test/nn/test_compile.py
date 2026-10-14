@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 
 import pytest
 import torch
@@ -19,19 +19,13 @@ from sdm.nn import (
 from sdm.testing import withCUDA
 
 # Skip all tests in this test file if it is not a full test run (FULL_TEST=1).
-pytestmark = pytest.mark.skipif(
-    os.getenv("FULL_TEST", "0") != "1",
-    reason="Fast test run",
-)
-
-
-@pytest.fixture(autouse=True)
-def _reset_dynamo() -> Iterator[None]:
-    # Isolate compile caches so per-test guard specializations of shared
-    # forward code objects never hit the recompile limit.
-    torch._dynamo.reset()
-    yield
-    torch._dynamo.reset()
+pytestmark = [
+    pytest.mark.skipif(
+        os.getenv("FULL_TEST", "0") != "1",
+        reason="Fast test run",
+    ),
+    pytest.mark.usefixtures("compilation"),
+]
 
 
 def fullgraph(module: torch.nn.Module) -> Callable[..., Tensor]:
